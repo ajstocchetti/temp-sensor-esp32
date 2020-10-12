@@ -60,6 +60,8 @@ void connectAWS() {
 void publishMessage() {
   StaticJsonDocument<200> doc; // https://arduinojson.org/v6/api/staticjsondocument/
 
+  doc["sensor"] = "DHT22";
+
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
 
@@ -71,23 +73,22 @@ void publishMessage() {
   }
   doc["tempf"] = temp;
 
-  float hum = dht.readHumidity();
-  if (!isnan(hum)) {
-    doc["humidity"] = hum;
+  float humidity = dht.readHumidity();
+  if (!isnan(humidity)) {
+    doc["humidity"] = humidity;
   }
 
   char jsonBuffer[512];
   serializeJson(doc, jsonBuffer); // print to client
 
-  Serial.println(jsonBuffer);
-
   std::string str;
   str = "home/thing/";
   str += THINGNAME;
-  str += "/dht22";
+  str += "/climate";
   const char *topic = str.c_str();
-  // const char* topic = "home/thing/" + THINGNAME + "/dht22";
   bool result = client.publish(topic, jsonBuffer);
+  Serial.print(jsonBuffer);
+  Serial.print(" Success: ");
   Serial.println(result);
 }
 
@@ -104,7 +105,11 @@ void setup() {
 void loop() {
   publishMessage();
   client.loop();
-  delay(30000);
+  for (int d = 0; d < 30; d++) {
+    delay(1000);
+    client.loop();
+  }
+  // delay(30000);
 }
 
 
