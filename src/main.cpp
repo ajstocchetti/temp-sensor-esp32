@@ -16,6 +16,10 @@ DHT dht(DHTPIN, DHTTYPE);
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
+uint8_t numPublishFails = 0;
+uint8_t publishFailsAlertLevel = 10;
+#define LEDPIN 15
+
 void connectWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -57,7 +61,7 @@ void connectAWS() {
   Serial.println("AWS IoT Connected!");
 }
 
-void publishMessage() {
+bool publishMessage() {
   StaticJsonDocument<200> doc; // https://arduinojson.org/v6/api/staticjsondocument/
 
   doc["sensor"] = "DHT22";
@@ -69,7 +73,7 @@ void publishMessage() {
   float temp = dht.readTemperature(isFahrenheit);
   if (isnan(temp)) {
     Serial.println("Error reading temp");
-    return;
+    return false;
   }
   doc["tempf"] = temp;
 
@@ -90,12 +94,26 @@ void publishMessage() {
   Serial.print(jsonBuffer);
   Serial.print(" Success: ");
   Serial.println(result);
+  return result;
+}
+
+void handlePublishStatus(bool isSuccess) {
+  numPublishFails = isSuccess ? 0 : std::max(numPublishFails++, publishFailsAlertLevel);
+
+  if (numPublishFails < publishFailsAlertLevel) {
+    // turn LED off
+    digitalWrite(LEDPIN, LOW);
+  } else {
+    // turn LED onn
+    digitalWrite(LEDPIN, HIGH);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Initiating temperature monitor");
 
+  pinMode(LEDPIN, OUTPUT);
   connectWifi();
   connectAWS();
 
@@ -103,7 +121,8 @@ void setup() {
 }
 
 void loop() {
-  publishMessage();
+  bool isPublishSuccess = publishMessage();
+  handlePublishStatus(isPublishSuccess);
   client.loop();
   for (int d = 0; d < 30; d++) {
     delay(1000);
