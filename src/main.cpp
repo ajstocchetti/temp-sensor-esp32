@@ -17,8 +17,8 @@ WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
 uint8_t numPublishFails = 0;
-uint8_t publishFailsAlertLevel = 10;
-#define LEDPIN 15
+const uint8_t publishFailsAlertLevel = 10;
+#define LEDPIN 5
 
 void connectWifi() {
   WiFi.mode(WIFI_STA);
@@ -99,21 +99,26 @@ bool publishMessage() {
 
 void handlePublishStatus(bool isSuccess) {
   numPublishFails = isSuccess ? 0 : std::max(numPublishFails++, publishFailsAlertLevel);
-
-  if (numPublishFails < publishFailsAlertLevel) {
-    // turn LED off
-    digitalWrite(LEDPIN, LOW);
-  } else {
-    // turn LED onn
-    digitalWrite(LEDPIN, HIGH);
-  }
+  Serial.print("Number of consecutive failed attempts: ");
+  Serial.println(numPublishFails);
 }
 
+bool shouldAlert() {
+  return !(numPublishFails < publishFailsAlertLevel);
+}
+
+void toggleLed() {
+  digitalWrite(LEDPIN, !digitalRead(LEDPIN));
+}
+
+
 void setup() {
+  pinMode(LEDPIN, OUTPUT);
+  digitalWrite(LEDPIN, HIGH);
+
   Serial.begin(115200);
   Serial.println("Initiating temperature monitor");
 
-  pinMode(LEDPIN, OUTPUT);
   connectWifi();
   connectAWS();
 
@@ -125,10 +130,11 @@ void loop() {
   handlePublishStatus(isPublishSuccess);
   client.loop();
   for (int d = 0; d < 30; d++) {
+    if (shouldAlert()) toggleLed();
+    else digitalWrite(LEDPIN, LOW);
     delay(1000);
     client.loop();
   }
-  // delay(30000);
 }
 
 
