@@ -111,7 +111,13 @@ bool publishMessage() {
 }
 
 void handlePublishStatus(bool isSuccess) {
-  numPublishFails = isSuccess ? 0 : std::max(numPublishFails++, publishFailsAlertLevel);
+  // numPublishFails = isSuccess ? 0 : std::min(numPublishFails++, publishFailsAlertLevel);
+  // break up above line to prevent compiler errors
+  if (isSuccess) numPublishFails = 0;
+  else {
+    numPublishFails++;
+    numPublishFails = std::min(numPublishFails, publishFailsAlertLevel);
+  }
   Serial.print("Number of consecutive failed attempts: ");
   Serial.println(numPublishFails);
   if (isSuccess) blinkGreen();
