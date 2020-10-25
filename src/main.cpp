@@ -1,4 +1,6 @@
 #include "secrets.h"
+#include <Arduino.h>
+#include <analogWrite.h>
 #include "DHT.h"
 #include <WiFiClientSecure.h>
 #include <MQTTClient.h>
@@ -13,12 +15,23 @@
 // - DHT21 : DHT 21 - AM2301
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
+
+#define REDPIN 16
+#define GREENPIN 17
+#define BLUEPIN 21
+
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
 uint8_t numPublishFails = 0;
 const uint8_t publishFailsAlertLevel = 10;
-#define LEDPIN 5
+
+void blinkRed();
+void blinkGreen();
+void blinkBlue();
+void blinkYellow();
+void setColor(int red, int green, int blue);
+void blinkColor(int red, int green, int blue);
 
 void connectWifi() {
   WiFi.mode(WIFI_STA);
@@ -101,20 +114,26 @@ void handlePublishStatus(bool isSuccess) {
   numPublishFails = isSuccess ? 0 : std::max(numPublishFails++, publishFailsAlertLevel);
   Serial.print("Number of consecutive failed attempts: ");
   Serial.println(numPublishFails);
+  if (isSuccess) blinkGreen();
+  else {
+    if (numPublishFails < publishFailsAlertLevel) blinkYellow();
+    else blinkRed();
+  }
 }
 
 bool shouldAlert() {
   return !(numPublishFails < publishFailsAlertLevel);
 }
 
-void toggleLed() {
-  digitalWrite(LEDPIN, !digitalRead(LEDPIN));
-}
-
+// void toggleLed() {
+//   digitalWrite(LEDPIN, !digitalRead(LEDPIN));
+// }
 
 void setup() {
-  pinMode(LEDPIN, OUTPUT);
-  digitalWrite(LEDPIN, HIGH);
+  pinMode(REDPIN, OUTPUT);
+  pinMode(GREENPIN, OUTPUT);
+  pinMode(BLUEPIN, OUTPUT);
+  setColor(0, 200, 255);
 
   Serial.begin(115200);
   Serial.println("Initiating temperature monitor");
@@ -129,15 +148,35 @@ void loop() {
   bool isPublishSuccess = publishMessage();
   handlePublishStatus(isPublishSuccess);
   client.loop();
-  for (int d = 0; d < 30; d++) {
-    if (shouldAlert()) toggleLed();
-    else digitalWrite(LEDPIN, LOW);
-    delay(1000);
+  for (int d = 0; d < 15; d++) {
+    if (shouldAlert()) blinkRed();
+    else delay(2000);
     client.loop();
   }
 }
 
+void blinkColor(int red, int green, int blue) {
+  setColor(red, green, blue);
+  delay(1000);
+  setColor(0, 0, 0);
+  delay(1000);
+}
 
+void blinkYellow() { blinkColor(200, 255, 0); }
+void blinkBlue() { blinkColor(0, 200, 255); } // aqua
+void blinkRed() { blinkColor(255, 0, 0); }
+void blinkGreen() { blinkColor(50, 255, 0); }
+
+void setColor(int red, int green, int blue) {
+  #ifdef COMMON_ANODE
+    red = 255 - red;
+    green = 255 - green;
+    blue = 255 - blue;
+  #endif
+  analogWrite(REDPIN, red);
+  analogWrite(GREENPIN, green);
+  analogWrite(BLUEPIN, blue);
+}
 
 /*
 void printStuff() {
