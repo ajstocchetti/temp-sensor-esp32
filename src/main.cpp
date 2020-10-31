@@ -24,7 +24,8 @@ WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
 uint8_t numPublishFails = 0;
-const uint8_t publishFailsAlertLevel = 10;
+const uint8_t publishFailsAlertLevel = 4;
+const uint8_t publishFailsCriticalLevel = 8;
 
 void blinkRed();
 void blinkGreen();
@@ -120,15 +121,18 @@ void handlePublishStatus(bool isSuccess) {
   }
   Serial.print("Number of consecutive failed attempts: ");
   Serial.println(numPublishFails);
-  if (isSuccess) blinkGreen();
-  else {
+  if (!isSuccess) {
     if (numPublishFails < publishFailsAlertLevel) blinkYellow();
     else blinkRed();
   }
 }
 
 bool shouldAlert() {
-  return !(numPublishFails < publishFailsAlertLevel);
+  return numPublishFails >= publishFailsAlertLevel;
+}
+
+bool tooManyConsecutiveFails() {
+  return numPublishFails >= publishFailsCriticalLevel;
 }
 
 // void toggleLed() {
@@ -154,6 +158,11 @@ void loop() {
   bool isPublishSuccess = publishMessage();
   handlePublishStatus(isPublishSuccess);
   client.loop();
+
+  if (tooManyConsecutiveFails()) {
+    ESP.restart();
+  }
+
   for (int d = 0; d < 15; d++) {
     if (shouldAlert()) blinkRed();
     else delay(2000);
