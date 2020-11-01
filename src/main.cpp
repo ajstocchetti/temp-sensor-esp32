@@ -112,19 +112,13 @@ bool publishMessage() {
 }
 
 void handlePublishStatus(bool isSuccess) {
-  // numPublishFails = isSuccess ? 0 : std::min(numPublishFails++, publishFailsAlertLevel);
-  // break up above line to prevent compiler errors
   if (isSuccess) numPublishFails = 0;
   else {
     numPublishFails++;
-    numPublishFails = std::min(numPublishFails, publishFailsAlertLevel);
+    blinkYellow();
   }
   Serial.print("Number of consecutive failed attempts: ");
   Serial.println(numPublishFails);
-  if (!isSuccess) {
-    if (numPublishFails < publishFailsAlertLevel) blinkYellow();
-    else blinkRed();
-  }
 }
 
 bool shouldAlert() {
@@ -152,6 +146,7 @@ void setup() {
   connectAWS();
 
   dht.begin();
+  setColor(0, 0, 0);
 }
 
 void loop() {
